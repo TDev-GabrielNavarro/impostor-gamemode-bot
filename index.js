@@ -13,6 +13,21 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
     });
 
+
+const fs = require('fs');
+const path = require('path');
+
+client.commands = new Map();
+
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+  const filePath = path.join(commandsPath, file);
+  const command = require(filePath);
+  client.commands.set(command.name, command);
+}
+
 client.once('clientReady', () => {
     console.log(`Bot prendido! ${client.user.tag} a la orden!`);
 });
@@ -26,13 +41,20 @@ client.on('error', (error) => {
 });
 
 client.on('messageCreate', (message) => {
-    console.log(`Mensaje recibido: ${message.content} de ${message.author.tag}`);
+  if (!message.content.startsWith('?') || message.author.bot) return;
 
-    if (message.content === '!hola') {
-    message.channel.send('Malparido sapo de mierda >:v');
-    }
+  const args = message.content.slice(1).trim().split(/ +/);
+  const commandName = args.shift().toLowerCase();
 
+  const command = client.commands.get(commandName);
+  if (!command) return;
+
+  try {
+    command.execute(message, args);
+  } catch (error) {
+    console.error(error);
+    message.reply('Hubo un error al ejecutar ese comando.');
+  }
 });
 
-
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN); 
